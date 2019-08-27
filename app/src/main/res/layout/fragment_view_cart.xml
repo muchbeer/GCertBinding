@@ -4,12 +4,25 @@
         <variable
             name="iMainActivity"
             type="muchbeer.raum.com.gcertbinding.IMainActivity"/>
+
+        <variable
+            name="cartView"
+            type="muchbeer.raum.com.gcertbinding.model.CartViewModel"/>
+
     </data>
     <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@color/White">
 
+        <androidx.recyclerview.widget.RecyclerView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/recyclerv_view"
+            android:orientation="vertical"
+            app:cartItems="@{cartView.cart}">
+
+        </androidx.recyclerview.widget.RecyclerView>
 
     </RelativeLayout>
 </layout>

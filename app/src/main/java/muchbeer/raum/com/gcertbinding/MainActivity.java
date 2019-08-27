@@ -6,6 +6,7 @@ import androidx.fragment.app.FragmentTransaction;
 
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -32,12 +33,21 @@ public class MainActivity extends AppCompatActivity implements IMainActivity {
 
     private static final String LOG_TAG = MainActivity.class.getSimpleName() ;
     ActivityMainBinding mBinding;
+
+    //vars
+    private boolean mClickToExit = false;
+    private Runnable mCheckoutRunnable;
+    private Handler mCheckoutHandler;
+    private int mCheckoutTimer = 0;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         //(R.layout.activity_main);
         mBinding = DataBindingUtil.setContentView(this, R.layout.activity_main);
         mBinding.cart.setOnTouchListener(new CartTouchListener());
+
+        mBinding.proceedToCheckout.setOnClickListener(mCheckOutListener);
+
 
         getShoppingCart();
         init();
@@ -51,6 +61,12 @@ public class MainActivity extends AppCompatActivity implements IMainActivity {
         getTranformation.commit();
     }
 
+    public View.OnClickListener mCheckOutListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View view) {
+            checkout();
+        }
+    };
 
     @Override
     public void inflateViewProductFragment(ProductEntity product) {
@@ -179,5 +195,97 @@ public class MainActivity extends AppCompatActivity implements IMainActivity {
         mBinding.getCartView().setCartVisible(visibility);
     }
 
+    @Override
+    public void updateQuantity(ProductEntity product, int quantity) {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        SharedPreferences.Editor editor = preferences.edit();
 
-}
+        //add the quantity
+        int currentQuantity = preferences.getInt(String.valueOf(product.getSerial_number()), 0);
+
+        //commit the updated quantity
+        editor.putInt(String.valueOf(product.getSerial_number()), (currentQuantity + quantity));
+        editor.commit();
+
+        getShoppingCart();
+    }
+
+    @Override
+    public void removeCartItem(CartItem cartItem) {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        SharedPreferences.Editor editor = preferences.edit();
+
+        editor.remove(String.valueOf(cartItem.getProduct().getSerial_number()));
+        editor.commit();
+
+        Set<String> serialNumbers = preferences.getStringSet(PreferenceKeys.shopping_cart, new HashSet<String>());
+        if(serialNumbers.size() == 1){
+            editor.remove(PreferenceKeys.shopping_cart);
+            editor.commit();
+        }
+        else{
+            serialNumbers.remove(String.valueOf(cartItem.getProduct().getSerial_number()));
+            editor.putStringSet(PreferenceKeys.shopping_cart, serialNumbers);
+            editor.commit();
+        }
+
+        getShoppingCart();
+
+        //remove the item from the list in ViewCartFragment
+        ViewCartFragment fragment = (ViewCartFragment)getSupportFragmentManager().findFragmentByTag(getString(R.string.fragment_view_cart));
+        if(fragment != null){
+            fragment.updateCartItems();
+        }
+    }
+
+    public void checkout(){
+        Log.d(LOG_TAG, "checkout: checking out.");
+
+        mBinding.progressBar.setVisibility(View.VISIBLE);
+
+        mCheckoutHandler = new Handler();
+        mCheckoutRunnable  = new Runnable() {
+            @Override
+            public void run() {
+                mCheckoutHandler.postDelayed(mCheckoutRunnable, 200);
+                mCheckoutTimer += 200;
+                if(mCheckoutTimer >= 1600){
+                    emptyCart();
+                    mBinding.progressBar.setVisibility(View.GONE);
+                    mCheckoutHandler.removeCallbacks(mCheckoutRunnable);
+                    mCheckoutTimer = 0;
+                }
+            }
+        };
+        mCheckoutRunnable.run();
+    }
+
+    private void emptyCart(){
+        Log.d(LOG_TAG, "emptyCart: emptying cart.");
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        Set<String> serialNumbers = preferences.getStringSet(PreferenceKeys.shopping_cart, new HashSet<String>());
+        SharedPreferences.Editor editor = preferences.edit();
+
+        for(String serialNumber : serialNumbers){
+            editor.remove(serialNumber);
+            editor.commit();
+        }
+
+        editor.remove(PreferenceKeys.shopping_cart);
+        editor.commit();
+        Toast.makeText(this, "thanks for shopping!", Toast.LENGTH_SHORT).show();
+        removeViewCartFragment();
+        getShoppingCart();
+    }
+
+    private void removeViewCartFragment() {
+            getSupportFragmentManager().popBackStack();
+            ViewCartFragment fragment = (ViewCartFragment) getSupportFragmentManager().findFragmentByTag(getString(R.string.fragment_view_cart));
+            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+            if(fragment != null){
+                transaction.remove(fragment);
+                transaction.commit();
+            }
+        }
+    }
+

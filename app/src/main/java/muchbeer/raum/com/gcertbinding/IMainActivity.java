@@ -1,5 +1,6 @@
 package muchbeer.raum.com.gcertbinding;
 
+import muchbeer.raum.com.gcertbinding.model.CartItem;
 import muchbeer.raum.com.gcertbinding.model.ProductEntity;
 
 public interface IMainActivity {
@@ -15,4 +16,8 @@ public interface IMainActivity {
     void inflateViewCartFragment();
 
     void setCartVisibility(boolean visibility);
+
+    void updateQuantity(ProductEntity product, int quantity);
+
+    void removeCartItem(CartItem cartItem);
 }
